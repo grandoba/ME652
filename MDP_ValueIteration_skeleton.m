@@ -58,7 +58,7 @@ end
 % value iternation (complete this)
 %--------------------------------------------------------------------------
 function V = value_iteration(V, env)
-
+ 
 V = zeros(env.nS,1);
 
 end
