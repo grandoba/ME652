@@ -18,7 +18,7 @@ while (1)   % iteration loop
         fprintf('\nMaximum iteration limit reached...\n\n');
         break;
     end
-    V = newV;
+    V = newV; 
 end
 
 optimal_V = newV;   % final value funtion
