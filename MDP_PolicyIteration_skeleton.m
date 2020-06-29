@@ -2,42 +2,41 @@
 % ME 652, Spring 2020
 % Course instructor: Jinwhan Kim
 %==========================================================================
-function MDP_ValueIteration_skeleton(RValue,GammaValue)
-    
-    if nargin ~= 2
-        RValue = -0.04;
-        GammaValue = 1;
+env = init();   % initialization
+max_iterations = 100;   % maximum iteration limit
+err_threshold = 1e-5;   % error tolerance
+V = env.R;  % initialize value function with reward values
+i_count = 0;    % iteration counter
+
+% set random policies at each state
+pol_vec = randi([1 4], 1, 12); 
+pol_vec([env.obst, env.tms1, env.tms2]) = 0;
+
+while (1)   % iteration loop
+    i_count = i_count + 1;
+    newV = policy_eval(V, env,pol_vec); 
+    newpol_vec = policy_improv(V, env,pol_vec); 
+    if (pol_vec == newpol_vec) % break if converged
+        fprintf('\nConverged after %i iterations...\n\n',i_count);
+        break;
+    elseif (i_count >= max_iterations)
+        fprintf('\nMaximum iteration limit reached...\n\n');
+        break;
     end
-    
-    env = init(RValue,GammaValue);   % initialization
-    max_iterations = 100;   % maximum iteration limit
-    err_threshold = 1e-5;   % error tolerance
-    V = env.R;  % initialize value function with reward values
-    i_count = 0;    % iteration counter
-
-    while (1)   % iteration loop
-        i_count = i_count + 1;
-        newV = value_iteration(V, env); % value iteration
-        if (sum(abs(newV - V)) < err_threshold) % break if converged
-            fprintf('\nConverged after %i iterations...\n\n',i_count);
-            break;
-        elseif (i_count >= max_iterations)
-            fprintf('\nMaximum iteration limit reached...\n\n');
-            break;
-        end
-        V = newV;
-    end
-
-    optimal_V = newV;   % final value funtion
-    disp(reshape(optimal_V', env.maxY, env.maxX));   % show value function
-
-    strP = extract_policy(optimal_V, env); % policy extraction
-    disp(reshape(strP, env.maxY, env.maxX));   % show policy
+    V = newV;
+    pol_vec = newpol_vec;
 end
+
+optimal_V = newV;   % final value funtion
+disp(reshape(optimal_V', env.maxY, env.maxX));   % show value function
+
+strP = extract_policy(optimal_V, env, pol_vec); % policy extraction
+disp(reshape(strP, env.maxY, env.maxX));   % show policy
+
 %--------------------------------------------------------------------------
 % initialize MDP parameters
 %--------------------------------------------------------------------------
-function env = init(RValue,GammaValue)
+function env = init()
     env.maxX = 4; % maximum X
     env.maxY = 3; % maximum Y
     env.nS = env.maxX * env.maxY; % number of states (grid cells)
@@ -49,26 +48,42 @@ function env = init(RValue,GammaValue)
     env.tms1 = XY2S(env, 4, 1); % terminal state 1
     env.tms2 = XY2S(env, 4, 2); % terminal state 2
 
-%     prompt = 'Type in R value : ';
-%     R = input(prompt);
-    R = RValue;
+    prompt = 'Type in R value : ';
+    % R = input(prompt);
+    R = -0.04;
 
     env.R = R*ones(env.nS, 1);
     env.R(env.obst) = 0;  % reward at obstacle state
     env.R(env.tms1) = 1;  % reward at terminal state 1
     env.R(env.tms2) = -1;  % reward at terminal state 2
 
-%     env.gamma = 1; % discount factor
-%     prompt = 'Type in gamma value : ';
-    env.gamma  = GammaValue;
+    env.gamma = 1; % discount factor
 end
 
-%--------------------------------------------------------------------------
-% value iternation (complete this)
-%--------------------------------------------------------------------------
-function [newV,act] = value_iteration(V, env)
+%% policy evaluation
+function newV = policy_eval(V, env, pol_vec)
     newV = zeros(env.nS,1) ;
     act = zeros(env.nS,1) ;
+    % for each state
+    for i = 1 : env.nS
+        if ((i == env.obst) || (i == env.tms1) || (i == env.tms2))
+            continue;
+        end
+            
+        policy = pol_vec(i);
+        nextS = next_state(env, i, policy);
+        value = env.prob*V(nextS);
+        
+        newV(i) = env.gamma*value;
+    end
+
+    newV = newV + env.R;
+end
+
+%% policy improvement
+function newpol_vec = policy_improv(V, env,pol_vec)
+    newpol_vec = pol_vec; 
+    
     % for each state
     for i = 1 : env.nS
         if ((i == env.obst) || (i == env.tms1) || (i == env.tms2))
@@ -84,22 +99,19 @@ function [newV,act] = value_iteration(V, env)
             vals(j) = value;
         end
         
-        [M, I] = max(vals);
-        newV(i) = env.gamma *  M;
-        act(i) = I;
+        [~, I] = max(vals);
+        newpol_vec(i) = I;
     end
-
-    newV = newV + env.R;
 end
 
 %--------------------------------------------------------------------------
-% extract policy (complete this)
+% policy extraction (complete this)
 %--------------------------------------------------------------------------
-function strP = extract_policy(V, env)
+function strP = extract_policy(V, env, pol_vec)
 
     strP = repmat("X",env.nS,1);
-    [~,act] = value_iteration(V, env);
-    
+    act = policy_improv(V, env, pol_vec);
+
     for i = 1:env.nS
         if act(i) == 1
            strP(i) = "U";
